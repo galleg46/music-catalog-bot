@@ -1,0 +1,29 @@
+{
+  "name": "music-catalog-bot2",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "register": "node comannds.js",
+    "dev": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/galleg46/music-catalog-bot.git"
+  },
+  "author": "Anthony Gallegos",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/galleg46/music-catalog-bot/issues"
+  },
+  "homepage": "https://github.com/galleg46/music-catalog-bot#readme",
+  "description": "",
+  "dependencies": {
+    "discord-interactions": "^4.4.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11"
+  }
+}
