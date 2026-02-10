@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express from 'express';
+import express, {response} from 'express';
 import {
     InteractionResponseFlags,
     InteractionResponseType,
@@ -55,21 +55,66 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
         }
 
         if (name === 'clean_up_purchases') {
-            const messages = await DiscordRequest(`channels/${channel_id}/messages`, {
-                method: 'GET'
-            }).then(function (response) {
-                return response.json();
-            });
 
-            const filteredMessages = messages.filter(function (message) {
-                return message.reactions?.some((reaction) => reaction.emoji.name === '🛍️');
-            });
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            console.log(filteredMessages);
-            for (const message of filteredMessages) {
-                await DiscordRequest(`channels/${channel_id}/messages/${message.id}`, {
-                    method: 'DELETE'
-                });
+            let lastMessageId = null;
+            let totalDeleted = 0;
+
+            const DELETE_BATCH_SIZE = 5;
+            const COOLDOWN_MS = 4000;
+
+            while (true) {
+
+                const queryParams = new URLSearchParams({ limit: 100 });
+
+                if (lastMessageId) {
+                    queryParams.append("before", lastMessageId);
+                }
+
+                const messages = await DiscordRequest(`channels/${channel_id}/messages?${queryParams.toString()}`, {
+                    method: 'GET'
+                }).then(response => response.json());
+
+                if (messages.length === 0) break;
+
+                lastMessageId = messages[messages.length - 1].id;
+
+                const filteredMessages = messages.filter(message =>
+                    message.reactions?.some((reaction) => ["🛍️", "⬇️"].includes(reaction.emoji.name))
+                );
+
+                if (filteredMessages.length === 0) continue;
+
+                let deletedThisRound = 0;
+
+                for (const message of filteredMessages) {
+                    const request = await DiscordRequest(`channels/${channel_id}/messages/${message.id}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (request.status === 429) {
+                        const data = await response.json();
+                        await sleep(10000);
+                        continue;
+                    }
+
+                    totalDeleted++;
+                    deletedThisRound++;
+
+                    if (deletedThisRound >= DELETE_BATCH_SIZE) {
+                        console.log(
+                            `Deleted ${DELETE_BATCH_SIZE} messages, entering short cooldown...`
+                        );
+
+                        await sleep(COOLDOWN_MS);
+                        deletedThisRound = 0;
+                    }
+
+
+                    totalDeleted++;
+                    await sleep(300);
+                }
             }
 
             return res.send({
@@ -79,7 +124,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                     components: [
                         {
                             type: MessageComponentTypes.TEXT_DISPLAY,
-                            content: 'purchased links have been deleted'
+                            content: `${totalDeleted} tracks have been purchased. Associated links have been deleted`
                         }
                     ]
                 }
