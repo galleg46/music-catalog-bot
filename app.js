@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, {response} from 'express';
+import express  from 'express';
 import {
     InteractionResponseFlags,
     InteractionResponseType,
@@ -56,6 +56,20 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
 
         if (name === 'clean_up_purchases') {
 
+            res.json({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+                    components: [{
+                        type: MessageComponentTypes.TEXT_DISPLAY,
+                        content: "🧹 Cleanup started... deleting purchase messages now. This may take a moment."
+                    }]
+                }
+            });
+
+            const interactionToken = req.body.token;
+            const appId = process.env.APP_ID;
+
             const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
             let lastMessageId = null;
@@ -94,7 +108,6 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                     });
 
                     if (request.status === 429) {
-                        const data = await response.json();
                         await sleep(10000);
                         continue;
                     }
@@ -111,28 +124,27 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                         deletedThisRound = 0;
                     }
 
-
-                    totalDeleted++;
                     await sleep(300);
                 }
             }
 
-            return res.send({
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    flags: InteractionResponseFlags.IS_COMPONENTS_V2,
-                    components: [
-                        {
-                            type: MessageComponentTypes.TEXT_DISPLAY,
-                            content: `${totalDeleted} tracks have been purchased. Associated links have been deleted`
-                        }
-                    ]
+            await fetch(
+                `https://discord.com/api/v10/webhooks/${appId}/${interactionToken}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        content: `🎉 Cleanup complete! ${totalDeleted} tracks were purchased.`
+                    })
                 }
-            })
-        }
+            );
 
-        console.error(`unknown command: ${name}`);
-        return res.status(400).json({ error: 'unknown command' });
+            return;
+        }
+        else {
+            console.error(`unknown command: ${name}`);
+            return;
+        }
     }
 
     console.error('unknown interaction type', type);
