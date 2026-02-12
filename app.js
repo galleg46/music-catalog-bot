@@ -54,6 +54,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
             });
         }
 
+        // TODO: concise the logic into functions so it's not all in this handler
         if (name === 'clean_up_purchases') {
 
             res.json({
@@ -128,6 +129,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
                 }
             }
 
+            // TODO: update DiscordRequest helper function in utils.js to also support webhooks
             await fetch(
                 `https://discord.com/api/v10/webhooks/${appId}/${interactionToken}`,
                 {
